@@ -17,9 +17,11 @@
 IPTABLES="/sbin/iptables"
 IPTABLES_RESTORE="/sbin/xtables-legacy-multi iptables-restore"
 
-# list of known spammers
-# URLS="https://www.spamhaus.org/drop/drop.lasso https://www.spamhaus.org/drop/edrop.lasso"
+# Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
 URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
+if [[ $BLACKLIST_URLS ]]
+  URLS=$BLACKLIST_URLS
+fi
 
 # local cache copy
 CACHE_FILE="/tmp/firehol.blocklist.cache"
