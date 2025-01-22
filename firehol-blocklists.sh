@@ -19,9 +19,6 @@ IPTABLES_RESTORE="/sbin/xtables-legacy-multi iptables-restore"
 
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
 URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
-if [[ $BLACKLIST_URLS ]]
-  URLS=$BLACKLIST_URLS
-fi
 
 # local cache copy
 CACHE_FILE="/etc/firehol/firehol.blocklist.cache"
@@ -34,13 +31,14 @@ LOCAL_BLACKLIST_FILE="/etc/firehol/blocklist"
 # file must start with '/etc/firehol/whitelist' to prevent misuse
 LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
 
-# iptables custom chain name
-CHAIN="firehol-blocklist"
+# iptables chain name
+CHAIN="INPUT"
+
+# ipset set name
+IPSET="firehol-blocklist"
 
 # (don't) skip failed blocklist downloads
-if [[ ! $SKIP_FAILED_DOWNLOADS ]]
-  SKIP_FAILED_DOWNLOADS=0
-fi
+SKIP_FAILED_DOWNLOADS=0
 
 # log blocklist hits in iptables
 if [[ ! $LOG_BLOCKLIST_HITS ]]
@@ -208,8 +206,8 @@ update_iptables() {
 	# refuse to run if the cache file looks insane
 	if [ ! -r "$CACHE_FILE" ]; then
 		die "Cannot read cache file '$CACHE_FILE'"
-	elif [ "$(stat -c '%U' "$CACHE_FILE")" != "root" ]; then
-		die "Cache file '$CACHE_FILE' is not owned by root.  Refusing to load it."
+#	elif [ "$(stat -c '%U' "$CACHE_FILE")" != "root" ]; then
+#		die "Cache file '$CACHE_FILE' is not owned by root.  Refusing to load it."
 	fi
 
         # check to see if the chain already exists
