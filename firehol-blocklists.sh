@@ -24,7 +24,7 @@ if [[ $BLACKLIST_URLS ]]
 fi
 
 # local cache copy
-CACHE_FILE="/tmp/firehol.blocklist.cache"
+CACHE_FILE="/etc/firehol/firehol.blocklist.cache"
 
 # use local block list file or option -m
 # file must start with '/etc/firehol/blocklist' to prevent misuse
@@ -38,10 +38,14 @@ LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
 CHAIN="firehol-blocklist"
 
 # (don't) skip failed blocklist downloads
-SKIP_FAILED_DOWNLOADS=0
+if [[ ! $SKIP_FAILED_DOWNLOADS ]]
+  SKIP_FAILED_DOWNLOADS=0
+fi
 
 # log blocklist hits in iptables
-LOG_BLOCKLIST_HITS=0
+if [[ ! $LOG_BLOCKLIST_HITS ]]
+  LOG_BLOCKLIST_HITS=0
+fi
 
 INDEX=1
 
