@@ -3,7 +3,7 @@ A shell script that grabs the latest Firehol blocklists and adds it to iptables 
 Additional blocklists can easily be added by popping their download URLs into the script.
 By default it's loading the level 1, 2 and 3 lists - which means you should pull-and-load frequently: https://iplists.firehol.org/
 
-### Important technical information
+#### Important technical information
 Synology has the ipset module in the kernel, but of the two methods only for hash:ip, without hash:net. Additionally, there is no ipset command in Synology DSM.
 The solution to this is a Docker container, which
   - contains the ipset command
