@@ -102,17 +102,14 @@ expand_cidr() {
 }
 
 netset_2_ipset() {
-  if [ ! -f "$1" ]; then
-    echo "File not found: $1"
-    exit 1
-  fi
-  while IFS= read -r line; do
+[ $# -ge 1 -a -f "$1" ] && input="$1" || input="-"
+while IFS= read -r line; do
     if echo "$line" | grep -q -E '^[^#]*/.+$'; then  # Check if the line is NOT a comment, BUT contains a CIDR notation
       expand_cidr "$line"
     else
       echo "$line"  # Output the line as is if it's not a CIDR notation
     fi
-  done < "$1"
+  done < "$input"
 }
 
 set_mode() {
@@ -144,13 +141,13 @@ delete_chain() {
 }
 
 download_rules() {
-	TMP_FILE="$(mktemp)"
-	WHITELIST_TMP_FILE="$(mktemp)"
+	local TMP_FILE="$(mktemp)"
+	local WHITELIST_TMP_FILE="$(mktemp)"
 	
 	for URL in $URLS; do
 		# get a copy of the spam list
 		echo "Fetching '$URL' ..."
-		curl -Ss "$URL" | grep -e "" | tee -a "$TMP_FILE" > /dev/null 2>&1
+		curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
 		if [ ${PIPESTATUS[0]} -ne 0 ]; then
 			if [ $SKIP_FAILED_DOWNLOADS -eq 1 ]; then
 				echo "Failed to download '$URL' while skipping is enabled - so continuing."
@@ -202,7 +199,7 @@ download_rules() {
 }
 
 update_iptables() {
-	TMP_FILE="$(mktemp)"
+	local TMP_FILE="$(mktemp)"
 
 	# refuse to run if the cache file looks insane
 	if [ ! -r "$CACHE_FILE" ]; then
