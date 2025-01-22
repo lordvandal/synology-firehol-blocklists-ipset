@@ -7,7 +7,7 @@ Additional blocklists can easily be added by popping their download URLs into th
 By default it's loading the level 1, 2 and 3 lists - which means you should pull-and-load frequently: https://iplists.firehol.org/
 
 #### Important technical information
-Synology has the ipset module in the kernel, but of the two methods only for hash:ip, without hash:net (https://firehol.org/guides/ipset/). Additionally, there is no ipset command available in Synology DSM, as of verion 7.2.<br>
+Synology has the ipset module in the kernel, but of the two methods only for hash:ip, without hash:net (https://firehol.org/guides/ipset/). Additionally, there is no ipset command available in Synology DSM, as of version 7.2.<br>
 The solution to this is a Docker container, which:
   - contains the ipset command
   - has access to the host network, to execute it and add the lists to the host iptables
