@@ -13,10 +13,6 @@
 # Thanks to Daniel Hansson for providing a PR motivating bringing v2 of this script.
 # https://github.com/enoch85
 
-# path to iptables
-IPTABLES="/sbin/iptables"
-IPTABLES_RESTORE="/sbin/xtables-legacy-multi iptables-restore"
-
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
 URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
 
@@ -34,32 +30,49 @@ LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
 # iptables chain name
 CHAIN="INPUT"
 
-# ipset set name
+# ipset set names
 IPSET="firehol-blocklist"
+IPSET_TMP="firehol-blocklist-tmp"
 
 # (don't) skip failed blocklist downloads
 SKIP_FAILED_DOWNLOADS=0
 
-# log blocklist hits in iptables
-if [[ ! $LOG_BLOCKLIST_HITS ]]
-  LOG_BLOCKLIST_HITS=0
-fi
-
 INDEX=1
 
+exit_cleanup() {
+  if iptables_rule_exists; then
+    delete_iptables_rule
+  fi
+  if ipset_exists; then
+    destroy_ipset
+  fi
+  # remove our handler
+  trap - SIGHUP SIGINT SIGTERM SIGKILL EXIT
+}
+
+trap_with_arg() {
+    func="$1" ; shift
+    for sig ; do
+        trap "$func $sig" "$sig"
+    done
+}
+
+trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL EXIT
+
 error() {
-	echo "$1" 1>&2
+  echo "$1" 1>&2
 }
 
 die() {
-	if [ -n "$1" ]; then
-		error "$1"
-	fi
-	exit 1
+  if [ -n "$1" ]; then
+    error "$1"
+  fi
+  exit_cleanup
+  exit 1
 }
 
 usage() {
-	echo "Basic usage: $(basename $0) <-u>
+  echo "Basic usage: $(basename $0) <-u>
 
 Additional options and arguments:
   -u                   Download blocklists and update iptables, falling back to cache file unless -s is specified
@@ -72,10 +85,9 @@ Additional options and arguments:
   -z                   Update the blocklist from the local cache, don't download new entries
   -d                   Delete the iptables chain (removing all blocklists)
   -o                   Only download the blocklists, don't update iptables
-  -t                   Enable logging of blocklist hits in iptables
   -h                   Display this help message
 "
-	exit $EXIT_CODE
+  exit $EXIT_CODE
 }
 
 expand_cidr() {
@@ -104,8 +116,8 @@ expand_cidr() {
 }
 
 netset_2_ipset() {
-[ $# -ge 1 -a -f "$1" ] && input="$1" || input="-"
-while IFS= read -r line; do
+  [ $# -ge 1 -a -f "$1" ] && input="$1" || input="-"
+  while IFS= read -r line; do
     if echo "$line" | grep -q -E '^[^#]*/.+$'; then  # Check if the line is NOT a comment, BUT contains a CIDR notation
       expand_cidr "$line"
     else
@@ -115,186 +127,200 @@ while IFS= read -r line; do
 }
 
 set_mode() {
-	if [ -n "$MODE" ]; then
-		die "You must only specify one of -u/-o/-d/-z"
-	fi
-	MODE="$1"
+  if [ -n "$MODE" ]; then
+    die "You must only specify one of -u/-o/-d/-z"
+  fi
+  MODE="$1"
 }
 
-delete_chain_reference() {
-	$IPTABLES -L "$1" | tail -n +3 | grep -e "^$CHAIN " > /dev/null && $IPTABLES -D "$1" -j "$CHAIN"
+list_active_ipsets() {
+  ipset list -n || ( ipset -L | grep "^Name:" | cut -d: -f 2 )
 }
 
-delete_chain() {
-	if $IPTABLES -L "$CHAIN" -n &> /dev/null; then
-#               delete_chain_reference INPUT
-                # delete reference from DEFAULT_INPUT chain instead of INPUT (thanks Synology, WTF?!)
-                delete_chain_reference DEFAULT_INPUT
-#		delete_chain_reference FORWARD
-		if $IPTABLES -F "$CHAIN" && $IPTABLES -X "$CHAIN"; then
-			echo "'$CHAIN' chain removed from iptables."
-		else
-#			echo "'$CHAIN' chain NOT removed, please report this issue to https://github.com/wallyhall/spamhaus-drop/"
-			echo "'$CHAIN' chain NOT removed from iptables."
-		fi
-	else
-		echo "'$CHAIN' does not exist, nothing to delete."
-	fi
+ipset_exists() {
+  # get all the active ipsets in the system
+  for x in  $( list_active_ipsets ); do
+    if [ "${x}" = "${IPSET}" ]; then
+      return 0
+    fi
+  done
+  exit 1
+}
+
+iptables_rule_exists() {
+  [[ -n `iptables -L $CHAIN | grep "match-set $1 src"` ]]
+}
+
+create_iptables_rule() {
+  iptables -I "$CHAIN" -m set --match-set $IPSET src -j DROP
+}
+
+delete_iptables_rule() {
+  iptables -D "$CHAIN" -m set --match-set $IPSET src -j DROP
+}
+
+destroy_ipset() {
+  # destroy ipset if exists
+  if ipset_exists; then
+    ipset destroy "$IPSET" 2>/dev/null
+  fi
 }
 
 download_rules() {
-	local TMP_FILE="$(mktemp)"
-	local WHITELIST_TMP_FILE="$(mktemp)"
+  local TMP_FILE="$(mktemp)"
+  local WHITELIST_TMP_FILE="$(mktemp)"
 	
-	for URL in $URLS; do
-		# get a copy of the spam list
-		echo "Fetching '$URL' ..."
-		curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
-		if [ ${PIPESTATUS[0]} -ne 0 ]; then
-			if [ $SKIP_FAILED_DOWNLOADS -eq 1 ]; then
-				echo "Failed to download '$URL' while skipping is enabled - so continuing."
-				cat "$CACHE_FILE" >> "$TMP_FILE"
-			else
-#				rm -f "$TMP_FILE"
-#				die "Failed to download '$URL', aborting."
-				die "Failed to download '$URL', falling back to cache file instead."
-			fi
-		fi
-	done
+  for URL in $URLS; do
+    # get a copy of the spam list
+    echo "Fetching '$URL' ..."
+    curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+      if [ $SKIP_FAILED_DOWNLOADS -eq 1 ]; then
+        echo "Failed to download '$URL' while skipping is enabled - so continuing."
+	cat "$CACHE_FILE" >> "$TMP_FILE"
+      else
+        die "Failed to download '$URL', falling back to cache file instead."
+      fi
+    fi
+  done
 
-	if [ -n "$LOCAL_BLACKLIST_FILE" ]; then
-		if [ -e "$LOCAL_BLACKLIST_FILE" ]; then
-			echo "Fetching '$LOCAL_BLACKLIST_FILE' ..."
-			if [[ $LOCAL_BLACKLIST_FILE == /etc/firehol/blocklist* ]] ; then
-				grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
-			else
-				echo Local file does not start with "/etc/firehol/blocklist"
-			fi
-		else
-			echo Local file does not exist: "$LOCAL_BLACKLIST_FILE"
-		fi
-	fi
+  if [ -n "$LOCAL_BLACKLIST_FILE" ]; then
+    if [ -e "$LOCAL_BLACKLIST_FILE" ]; then
+      echo "Fetching '$LOCAL_BLACKLIST_FILE' ..."
+      if [[ $LOCAL_BLACKLIST_FILE == /etc/firehol/blocklist* ]] ; then
+        grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
+      else
+        echo Local file does not start with "/etc/firehol/blocklist"
+      fi
+    else
+      echo Local file does not exist: "$LOCAL_BLACKLIST_FILE"
+    fi
+  fi
 
-	echo "Removing comments (#,;) from the downloaded IP blacklist..."
-	sed -i 's/\s*\(#\|;\).*$//' "$TMP_FILE"
-	sed -i '/^\s*$/d' "$TMP_FILE"
+  echo "Removing comments (#,;) from the downloaded IP blacklist..."
+  sed -i 's/\s*\(#\|;\).*$//' "$TMP_FILE"
+  sed -i '/^\s*$/d' "$TMP_FILE"
 
-	echo "Removing whitelisted IPs from the downloaded IP blacklist..."
-	IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
-	IPWHITELISTREGEX=""
-	while IFS= read -r WHITELISTEDIP
-	do
-		IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
-	done <<< ${IPWHITELIST}
-	## Clean the bounce variable (remove all line-breaks)
-	IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
-	IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX}) ## Remove all IPs listed in the whitelist file
-	grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE}
-	cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
-	rm -f ${WHITELIST_TMP_FILE}
+  echo "Removing whitelisted IPs from the downloaded IP blacklist..."
+  IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
+  IPWHITELISTREGEX=""
+  while IFS= read -r WHITELISTEDIP; do
+    IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
+  done <<< ${IPWHITELIST}
+  ## Clean the bounce variable (remove all line-breaks)
+  IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
+  IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX}) ## Remove all IPs listed in the whitelist file
+  grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE}
+  cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
+  rm -f ${WHITELIST_TMP_FILE}
 
-	echo "Removing duplicate IPs from the list ..."
-	sort -o "$TMP_FILE" -u "$TMP_FILE" > /dev/null 2>&1
+  echo "Removing duplicate IPs from the list ..."
+  sort -o "$TMP_FILE" -u "$TMP_FILE" > /dev/null 2>&1
 
-	mv -f "$TMP_FILE" "$CACHE_FILE"
-#	rm -f "$TMP_FILE"
+  mv -f "$TMP_FILE" "$CACHE_FILE"
 }
 
-update_iptables() {
-	local TMP_FILE="$(mktemp)"
+update_iptables_ipset() {
+  local TMP_FILE="$(mktemp)"
 
-	# refuse to run if the cache file looks insane
-	if [ ! -r "$CACHE_FILE" ]; then
-		die "Cannot read cache file '$CACHE_FILE'"
-#	elif [ "$(stat -c '%U' "$CACHE_FILE")" != "root" ]; then
-#		die "Cache file '$CACHE_FILE' is not owned by root.  Refusing to load it."
-	fi
+  # refuse to run if the cache file looks insane
+  if [ ! -r "$CACHE_FILE" ]; then
+    die "Cannot read cache file '$CACHE_FILE'"
+  fi
+  
+  # iterate through all known blocklist IPs
+  # for IP in $( cat "$CACHE_FILE" | grep -e "^\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\/[0-9]\{1,2\} " | cut -d' ' -f1 ); do
+  # for IP in $( cat "$CACHE_FILE" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}(/[1-2][0-9]|3[0-2]|[0-9])?' ); do
+    # add the ip address to the chain
+    # echo "add $IPSET $IP" >> "$TMP_FILE"
+  # done
+  
+  if ! iptables_rule_exists; then
+    create_iptables_rule
+  fi
+  
+  IPs=$( iprange -C "$CACHE_FILE" )
+  IPs=${IPs/*,/}
+  
+  iprange -1 "$CACHE_FILE" --print-prefix "add ${tmpname} " >"TMP_FILE" || exit 1
+  echo -e "COMMIT" >> "$TMP_FILE"
 
-        # check to see if the chain already exists
-        if $IPTABLES -L "$CHAIN" -n &> /dev/null; then
-		echo "Deleting old chain $CHAIN..."
-		delete_chain
-	fi
+  OPTS=
+  if [ $IPs -gt 65536 ]; then
+    OPTS="maxelem ${entries}"
+  fi
 
-	# prepare header
-	echo "*filter" > "$TMP_FILE"
-	echo ":$CHAIN -" >> "$TMP_FILE"
-	echo "-I INPUT -j $CHAIN" >> "$TMP_FILE"
+  if ! ipset exists; then
+    # create ipset
+    ipset create "$IPSET" hash:ip $OPTS || exit 1
+  fi
 
-	# iterate through all known spamming hosts
-#	for IP in $( cat "$CACHE_FILE" | grep -e "^\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\/[0-9]\{1,2\} " | cut -d' ' -f1 ); do
-	for IP in $( cat "$CACHE_FILE" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}(/[1-2][0-9]|3[0-2]|[0-9])?' ); do
-		if [ $LOG_BLOCKLIST_HITS -eq 1 ]; then
-			# add the ip address log rule to the chain
-			echo "-A $CHAIN $IP -j LOG --log-prefix [FIREHOL BLOCKLIST] -m limit --limit 3/min --limit-burst 10" >> "$TMP_FILE"
-		fi
+  # create a temporary ipset
+  ipset create "$IPSET_TMP" hash:ip $OPTS || exit 1
 
-		# add the ip address to the chain
-		echo "-A $CHAIN -s $IP -j DROP" >> "$TMP_FILE"
-	done
+  # flush the temporary ipset
+  ipset flush "$IPSET_TMP" || exit 1
 
-	echo "-A $CHAIN -j RETURN" >> "$TMP_FILE"
-	echo -e "COMMIT" >> "$TMP_FILE"
+  # load the temporary ipset with the IPs in $TMP_FILE"
+  ipset restore <"$TMP_FILE" || exit 1
 
-	$IPTABLES_RESTORE -n -T filter < "$TMP_FILE"
-	echo "'$CHAIN' chain updated with latest rules."
-
-#	rm -f $TMP_FILE
+  # swap the temporary ipset with the final one
+  ipset swap "$IPSET_TMP" "$IPSET" || exit 1  
+  
+  # destroy the temporary ipset
+  ipset destroy "$IPSET_TMP" 2>/dev/null
+  rm -f $TMP_FILE
 }
 
-download_rules_and_update_iptables() {
-	download_rules
-	update_iptables
+download_rules_and_update_iptables_ipset() {
+  download_rules
+  update_iptables_ipset
 }
 
-if [ "$(whoami)" != "root" ]; then
-	die "You must run this command as root."
-fi
+# if [ "$(whoami)" != "root" ]; then
+#  die "You must run this command as root."
+# fi
 
 while getopts "c:l:f:m:w:usodtzhn" option; do
 	case "$option" in
-		c)	# override chain name
+		c) # override chain name
 			CHAIN="$OPTARG"
 			;;
 		
-		l)  # override list of block list URLs
+		l) # override list of block list URLs
 			URLS="$OPTARG"
 			;;
 
-		f)  # override rule cache file path
+		f) # override rule cache file path
 			CACHE_FILE="$OPTARG"
 			;;
 
-		m)  # my own block list file
+		m) # my own block list file
 			LOCAL_BLACKLIST_FILE="$OPTARG"
 			;;
 		
-		w)  # my own white list file
+		w) # my own white list file
 			LOCAL_WHITELIST_FILE="$OPTARG"
 			;;
 		
-		u)  # update block list
-			set_mode download_rules_and_update_iptables
+		u) # update block list
+			set_mode download_rules_and_update_iptables_ipset
 			;;
 		
-		s)  # skip failed blocklist downloads
+		s) # skip failed blocklist downloads
 			SKIP_FAILED_DOWNLOADS=1
 			;;
 		
-		o)  # download the rules to the cache file, and don't update iptables
+		o) # download the rules to the cache file, and don't update iptables
 			set_mode download_rules
 		    ;;
 		
-		d)  # delete the iptables chain
-			set_mode delete_chain
+		d)  # delete the iptables rule and destroy ipset
+			set_mode delete_iptables_ipset
 		    ;;
 
-		t)  # enable iptables logging
-			LOG_BLOCKLIST_HITS=1
-			;;
-		
 		z)  # update iptables from local cache without downloading
-		    set_mode update_iptables
+		    set_mode update_iptables_ipset
 			;;
 
 		h)  # show usage information
