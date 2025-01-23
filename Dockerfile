@@ -1,10 +1,10 @@
 FROM alpine:latest
 
-ARG IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprange/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
-ARG FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
-
 RUN apk add --no-cache tini bash iptables iptables-legacy ipset iproute2 curl unzip grep gawk lsof && \
     mkdir /firehol /firehol-template
+    
+ARG IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprange/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
+ARG FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
 
 RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc musl-dev && \
     curl -L https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
