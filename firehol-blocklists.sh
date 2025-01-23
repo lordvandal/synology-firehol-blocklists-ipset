@@ -14,30 +14,25 @@
 # https://github.com/enoch85
 
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
-URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
+#URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
 
 # local cache copy
-CACHE_FILE="/etc/firehol/firehol.blocklist.cache"
+#CACHE_FILE="/etc/firehol/firehol.blocklist.cache"
 
 # use local block list file or option -m
 # file must start with '/etc/firehol/blocklist' to prevent misuse
-LOCAL_BLACKLIST_FILE="/etc/firehol/blocklist"
+#LOCAL_BLACKLIST_FILE="/etc/firehol/blocklist"
 
 # use white list file or option -w
 # file must start with '/etc/firehol/whitelist' to prevent misuse
-LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
+#LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
 
 # iptables chain name
-CHAIN="INPUT"
+#CHAIN="INPUT"
 
 # ipset set names
-IPSET="firehol-blocklist"
-IPSET_TMP="firehol-blocklist-tmp"
-
-# (don't) skip failed blocklist downloads
-SKIP_FAILED_DOWNLOADS=0
-
-INDEX=1
+#IPSET="firehol-blocklist"
+#IPSET_TMP="firehol-blocklist-tmp"
 
 exit_cleanup() {
   if iptables_rule_exists; then
@@ -61,33 +56,6 @@ trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL EXIT
 
 error() {
   echo "$1" 1>&2
-}
-
-die() {
-  if [ -n "$1" ]; then
-    error "$1"
-  fi
-  exit_cleanup
-  exit 1
-}
-
-usage() {
-  echo "Basic usage: $(basename $0) <-u>
-
-Additional options and arguments:
-  -u                   Download blocklists and update iptables, falling back to cache file unless -s is specified
-  -c=CHAIN_NAME        Override default iptables chain name
-  -l=URL_LIST          Override default block list URLs [careful!]
-  -f=CACHE_FILE_PATH   Override default cache file path
-  -m=LOCAL_BLOCKLIST   Override default local block list file
-  -w=WHITELIST         Override default white list file
-  -s                   Skip failed blocklist downloads, continuing instead of aborting
-  -z                   Update the blocklist from the local cache, don't download new entries
-  -d                   Delete the iptables chain (removing all blocklists)
-  -o                   Only download the blocklists, don't update iptables
-  -h                   Display this help message
-"
-  exit $EXIT_CODE
 }
 
 expand_cidr() {
@@ -126,12 +94,12 @@ netset_2_ipset() {
   done < "$input"
 }
 
-set_mode() {
-  if [ -n "$MODE" ]; then
-    die "You must only specify one of -u/-o/-d/-z"
-  fi
-  MODE="$1"
-}
+#set_mode() {
+#  if [ -n "$MODE" ]; then
+#    die "You must only specify one of -u/-o/-d/-z"
+#  fi
+#  MODE="$1"
+#}
 
 list_active_ipsets() {
   ipset list -n || ( ipset -L | grep "^Name:" | cut -d: -f 2 )
@@ -175,12 +143,8 @@ download_rules() {
     echo "Fetching '$URL' ..."
     curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
     if [ ${PIPESTATUS[0]} -ne 0 ]; then
-      if [ $SKIP_FAILED_DOWNLOADS -eq 1 ]; then
-        echo "Failed to download '$URL' while skipping is enabled - so continuing."
-	cat "$CACHE_FILE" >> "$TMP_FILE"
-      else
-        die "Failed to download '$URL', falling back to cache file instead."
-      fi
+      echo "Failed to download '$URL' while skipping is enabled - so continuing."
+      cat "$CACHE_FILE" >> "$TMP_FILE"
     fi
   done
 
@@ -222,18 +186,6 @@ download_rules() {
 
 update_iptables_ipset() {
   local TMP_FILE="$(mktemp)"
-
-  # refuse to run if the cache file looks insane
-  if [ ! -r "$CACHE_FILE" ]; then
-    die "Cannot read cache file '$CACHE_FILE'"
-  fi
-  
-  # iterate through all known blocklist IPs
-  # for IP in $( cat "$CACHE_FILE" | grep -e "^\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\/[0-9]\{1,2\} " | cut -d' ' -f1 ); do
-  # for IP in $( cat "$CACHE_FILE" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}(/[1-2][0-9]|3[0-2]|[0-9])?' ); do
-    # add the ip address to the chain
-    # echo "add $IPSET $IP" >> "$TMP_FILE"
-  # done
   
   if ! iptables_rule_exists; then
     create_iptables_rule
@@ -272,76 +224,5 @@ update_iptables_ipset() {
   rm -f $TMP_FILE
 }
 
-download_rules_and_update_iptables_ipset() {
-  download_rules
-  update_iptables_ipset
-}
-
-# if [ "$(whoami)" != "root" ]; then
-#  die "You must run this command as root."
-# fi
-
-while getopts "c:l:f:m:w:usodtzhn" option; do
-	case "$option" in
-		c) # override chain name
-			CHAIN="$OPTARG"
-			;;
-		
-		l) # override list of block list URLs
-			URLS="$OPTARG"
-			;;
-
-		f) # override rule cache file path
-			CACHE_FILE="$OPTARG"
-			;;
-
-		m) # my own block list file
-			LOCAL_BLACKLIST_FILE="$OPTARG"
-			;;
-		
-		w) # my own white list file
-			LOCAL_WHITELIST_FILE="$OPTARG"
-			;;
-		
-		u) # update block list
-			set_mode download_rules_and_update_iptables_ipset
-			;;
-		
-		s) # skip failed blocklist downloads
-			SKIP_FAILED_DOWNLOADS=1
-			;;
-		
-		o) # download the rules to the cache file, and don't update iptables
-			set_mode download_rules
-		    ;;
-		
-		d)  # delete the iptables rule and destroy ipset
-			set_mode delete_iptables_ipset
-		    ;;
-
-		z)  # update iptables from local cache without downloading
-		    set_mode update_iptables_ipset
-			;;
-
-		h)  # show usage information
-		    usage
-		    ;;
-		
-		:)
-			error "Error: -${OPTARG} requires an argument."
-			usage
-			die
-			;;
-		
-		*)
-			error "Invalid argument -${OPTARG} supplied."
-			usage
-			die
-			;;
-	esac
-done
-
-if [ ! -n "$MODE" ]; then
-	usage 1
-fi
-$MODE
+download_rules
+update_iptables_ipset
