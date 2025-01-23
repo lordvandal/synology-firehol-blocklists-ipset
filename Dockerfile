@@ -7,7 +7,7 @@ ARG IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprang
 ARG FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
 
 RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc musl-dev && \
-    curl -L https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
+    curl -L https://github.com/firehol/iprange/releases/download/v$IPRANGE_LATEST_VERSION/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
     cd /tmp/iprange-1.0.4/ && \
     ./configure --prefix= --disable-man && \
     make && \
@@ -17,7 +17,7 @@ RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc mu
     apk del .iprange_builddep
 
 RUN apk add --no-cache --virtual .firehol_builddep autoconf automake make && \
-    curl -L https://github.com/firehol/firehol/releases/download/v${FIREHOL_LATEST_VERSION}/firehol-${FIREHOL_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
+    curl -L https://github.com/firehol/firehol/releases/download/v$FIREHOL_LATEST_VERSION/firehol-${FIREHOL_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
     cd /tmp/firehol-3.1.7/ && \
     ./autogen.sh && \
     ./configure --prefix= --disable-doc --disable-man && \
