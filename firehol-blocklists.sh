@@ -139,37 +139,35 @@ download_rules() {
     echo "Fetching '$URL' ..."
     curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
     if [ ${PIPESTATUS[0]} -ne 0 ]; then
-      echo "Failed to download '$URL' while skipping is enabled - so continuing."
+      # Failed to download '$URL', continuing
       cat "$CACHE_FILE" >> "$TMP_FILE"
     fi
   done
 
-  if [ -n "$LOCAL_BLACKLIST_FILE" ]; then
-    if [ -e "$LOCAL_BLACKLIST_FILE" ]; then
-      grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
-    else
-      echo Local file does not exist: "$LOCAL_BLACKLIST_FILE"
-    fi
+  if [ -s "$LOCAL_BLACKLIST_FILE" ]; then
+    grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
   fi
 
-  echo "Removing comments (#,;) from the downloaded IP blacklist..."
+  # Removing comments (#,;) from the downloaded IP blacklist
   sed -i 's/\s*\(#\|;\).*$//' "$TMP_FILE"
   sed -i '/^\s*$/d' "$TMP_FILE"
 
-  echo "Removing whitelisted IPs from the downloaded IP blacklist..."
-  IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
-  IPWHITELISTREGEX=""
-  while IFS= read -r WHITELISTEDIP; do
-    IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
-  done <<< ${IPWHITELIST}
-  ## Clean the bounce variable (remove all line-breaks)
-  IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
-  IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX}) ## Remove all IPs listed in the whitelist file
-  grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE}
-  cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
-  rm -f ${WHITELIST_TMP_FILE}
+  if [ -s "$LOCAL_WHITELIST_FILE" ]; then
+    # echo "Removing whitelisted IPs from the downloaded IP blacklist
+    IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
+    IPWHITELISTREGEX=""
+    while IFS= read -r WHITELISTEDIP; do
+      IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
+    done <<< ${IPWHITELIST}
+    ## Clean the bounce variable (remove all line-breaks)
+    IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
+    IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX}) ## Remove all IPs listed in the whitelist file
+    grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE}
+    cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
+    rm -f ${WHITELIST_TMP_FILE}
+  fi
 
-  echo "Removing duplicate IPs from the list ..."
+  # Removing duplicate IPs from the list
   sort -o "$TMP_FILE" -u "$TMP_FILE" > /dev/null 2>&1
 
   mv -f "$TMP_FILE" "$CACHE_FILE"
