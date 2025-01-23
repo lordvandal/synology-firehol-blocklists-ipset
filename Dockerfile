@@ -17,7 +17,7 @@ RUN export FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol
 #    apk del .iprange_builddep
 
 RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc musl-dev
-RUN curl -sL https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar vx -C /tmp
+RUN curl -sL https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp
 RUN cd /tmp/iprange-1.0.4/
 RUN ./configure --prefix= --disable-man
 RUN make
