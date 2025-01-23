@@ -16,16 +16,19 @@
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
 #URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
 
+# configuration folder
+CONFIG_FOLDER="/firehol"
+
 # local cache copy
-#CACHE_FILE="/etc/firehol/firehol.blocklist.cache"
+CACHE_FILE="$CONFIG_FOLDER/firehol.blocklist.cache"
 
 # use local block list file or option -m
-# file must start with '/etc/firehol/blocklist' to prevent misuse
-#LOCAL_BLACKLIST_FILE="/etc/firehol/blocklist"
+# file must start with '/firehol/blocklist' to prevent misuse
+LOCAL_BLACKLIST_FILE="$CONFIG_FOLDER/blocklist"
 
 # use white list file or option -w
-# file must start with '/etc/firehol/whitelist' to prevent misuse
-#LOCAL_WHITELIST_FILE="/etc/firehol/whitelist"
+# file must start with '/firehol/whitelist' to prevent misuse
+LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 
 # iptables chain name
 #CHAIN="INPUT"
@@ -94,13 +97,6 @@ netset_2_ipset() {
   done < "$input"
 }
 
-#set_mode() {
-#  if [ -n "$MODE" ]; then
-#    die "You must only specify one of -u/-o/-d/-z"
-#  fi
-#  MODE="$1"
-#}
-
 list_active_ipsets() {
   ipset list -n || ( ipset -L | grep "^Name:" | cut -d: -f 2 )
 }
@@ -150,12 +146,7 @@ download_rules() {
 
   if [ -n "$LOCAL_BLACKLIST_FILE" ]; then
     if [ -e "$LOCAL_BLACKLIST_FILE" ]; then
-      echo "Fetching '$LOCAL_BLACKLIST_FILE' ..."
-      if [[ $LOCAL_BLACKLIST_FILE == /etc/firehol/blocklist* ]] ; then
-        grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
-      else
-        echo Local file does not start with "/etc/firehol/blocklist"
-      fi
+      grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
     else
       echo Local file does not exist: "$LOCAL_BLACKLIST_FILE"
     fi
