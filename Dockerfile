@@ -3,8 +3,8 @@ FROM alpine:latest
 RUN apk add --no-cache tini bash iptables iptables-legacy ipset iproute2 curl unzip grep gawk lsof && \
     mkdir /firehol /firehol-template
     
-ARG IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprange/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
-ARG FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
+RUN export IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprange/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
+RUN export FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
 
 RUN echo "IPRANGE_LATEST_VERSION: $IPRANGE_LATEST_VERSION"
 RUN echo "FIREHOL_LATEST_VERSION: $FIREHOL_LATEST_VERSION"
