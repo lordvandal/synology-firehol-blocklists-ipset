@@ -1,7 +1,7 @@
 # This repository is still a work in progress, incomplete at the moment
 ---
 
-# ipset iptables Firehol blocklists (level1-2-3) pull-and-load script for Synology DSM 7.2 cron
+# ipset iptables Firehol blocklists (level1-2-3) pull-and-load docker container based on Alpine Linux for Synology DSM 7.2
 A shell script that grabs the latest Firehol blocklists and adds it to iptables via ipset.
 Additional blocklists can easily be added by popping their download URLs into the script.
 By default it's loading the level 1, 2 and 3 lists - which means you should pull-and-load frequently: https://iplists.firehol.org/
