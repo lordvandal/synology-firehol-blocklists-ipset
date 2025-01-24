@@ -4,7 +4,7 @@ if [[ ! -e /firehol/firehol.blocklist.cache ]]; then
   cp /firehol-template/firehol.blocklist.cache /firehol
 fi
 
-if [[ ! -e /firehol/blocklist. ]]; then
+if [[ ! -e /firehol/blocklist ]]; then
   cp /firehol-template/blocklist /firehol
 fi
 
