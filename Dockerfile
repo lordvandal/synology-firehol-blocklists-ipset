@@ -3,65 +3,49 @@ FROM alpine:latest
 RUN apk add --no-cache tini bash iptables iptables-legacy ipset iproute2 curl unzip grep gawk lsof && \
     mkdir /firehol /firehol-template
     
-RUN export IPRANGE_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/iprange/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
-RUN export FIREHOL_LATEST_VERSION=$(curl -s https://api.github.com/repos/firehol/firehol/releases/latest | grep "tag_name" | cut -d'v' -f2 | cut -d'"' -f1)
-
-RUN echo "IPRANGE_LATEST_VERSION: $IPRANGE_LATEST_VERSION"
-RUN echo "FIREHOL_LATEST_VERSION: $FIREHOL_LATEST_VERSION"
+ARG IPRANGE_LATEST_VERSION=1.0.4
+ARG FIREHOL_LATEST_VERSION=3.1.7
 
 RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc musl-dev && \
     curl -L https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
-    cd /tmp/iprange-1.0.4/ && \
+    cd /tmp/iprange-${IPRANGE_LATEST_VERSION}/ && \
     ./configure --prefix= --disable-man && \
     make && \
     make install && \
     cd && \
-    rm -rf /tmp/iprange-1.0.4/ && \
+    rm -rf /tmp/iprange-${IPRANGE_LATEST_VERSION}/ && \
     apk del .iprange_builddep
-
-#RUN apk add --no-cache --virtual .iprange_builddep autoconf automake make gcc musl-dev
-#RUN curl -sL https://github.com/firehol/iprange/releases/download/v${IPRANGE_LATEST_VERSION}/iprange-${IPRANGE_LATEST_VERSION}.tar.gz | tar zvx -C /tmp
-#RUN cd /tmp/iprange-1.0.4/
-#RUN ./configure --prefix= --disable-man
-#RUN make
-#RUN make install
-#RUN cd
-#RUN rm -rf /tmp/iprange-1.0.4/
-#RUN apk del .iprange_builddep
 
 RUN apk add --no-cache --virtual .firehol_builddep autoconf automake make && \
     curl -sL https://github.com/firehol/firehol/releases/download/v${FIREHOL_LATEST_VERSION}/firehol-${FIREHOL_LATEST_VERSION}.tar.gz | tar zvx -C /tmp && \
-    cd /tmp/firehol-3.1.7/ && \
+    cd /tmp/firehol-${FIREHOL_LATEST_VERSION}/ && \
     ./autogen.sh && \
     ./configure --prefix= --disable-doc --disable-man && \
     make && \
     make install && \
     cd && \
-    rm -rf /tmp/firehol-3.1.7/ && \
+    rm -rf /tmp/firehol-${FIREHOL_LATEST_VERSION}/ && \
     apk del .firehol_builddep
 
-# ENV variables
-# (note: ENV is one long line to minimise layers)
-ENV \
-  # Blacklists separated by one space
-  # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
-  URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset" \
+# Blacklists separated by one space
+# Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
+ENV URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
 
-  # Default cache file with the latest version of the ipset
-  #CACHE_FILE="/firehol/firehol.blocklist.cache" \
+# Default iptables chain name
+ENV CHAIN="INPUT"
 
-  # Default local block list file
-  #LOCAL_BLACKLIST_FILE="/firehol/blocklist" \
+# Default ipset set names
+ENV IPSET="firehol-blocklist"
+ENV IPSET_TMP="firehol-blocklist-tmp"
 
-  # Default local white list file
-  #LOCAL_WHITELIST_FILE="/firehol/whitelist" \
+# Default cache file with the latest version of the ipset
+#CACHE_FILE="/firehol/firehol.blocklist.cache"
 
-  # Default iptables chain name
-  CHAIN="INPUT" \
+# Default local block list file
+#LOCAL_BLACKLIST_FILE="/firehol/blocklist"
 
-  # Default ipset set names
-  IPSET="firehol-blocklist" \
-  IPSET_TMP="firehol-blocklist-tmp"
+# Default local white list file
+#LOCAL_WHITELIST_FILE="/firehol/whitelist"
 
 COPY firehol.blocklist.cache blocklist whitelist /firehol-template
 COPY run.sh firehol-blocklists.sh /bin
