@@ -87,14 +87,13 @@ expand_cidr() {
 }
 
 netset_2_ipset() {
-  [ $# -ge 1 -a -f "$1" ] && input="$1" || input="-"
   while IFS= read -r line; do
     if echo "$line" | grep -q -E '^[^#]*/.+$'; then  # Check if the line is NOT a comment, BUT contains a CIDR notation
       expand_cidr "$line"
     else
       echo "$line"  # Output the line as is if it's not a CIDR notation
     fi
-  done < "$input"
+  done < "${1:-/dev/stdin}"
 }
 
 list_active_ipsets() {
