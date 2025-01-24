@@ -1,0 +1,27 @@
+name: depup
+on:
+  schedule:
+    - cron: "14 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  iprange:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-depup@v1
+        id: iprange
+        with:
+          file: Dockerfile
+          version_name: IPRANGE_LATEST_VERSION
+          repo: firehol/iprange
+  firehol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-depup@v1
+        id: firehol
+        with:
+          file: Dockerfile
+          version_name: FIREHOL_LATEST_VERSION
+          repo: firehol/firehol
