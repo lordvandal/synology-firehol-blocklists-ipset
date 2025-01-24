@@ -30,7 +30,7 @@ LOCAL_BLACKLIST_FILE="$CONFIG_FOLDER/blocklist"
 # file must start with '/firehol/whitelist' to prevent misuse
 LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 
-# iptables chain name
+#  chain name
 #CHAIN="INPUT"
 
 # ipset set names
@@ -112,15 +112,15 @@ ipset_exists() {
 }
 
 iptables_rule_exists() {
-  [[ -n `iptables -L $CHAIN | grep "match-set $1 src"` ]]
+  [[ -n `iptables-legacy -L $CHAIN | grep "match-set $1 src"` ]]
 }
 
 create_iptables_rule() {
-  iptables -I "$CHAIN" -m set --match-set $IPSET src -j DROP
+  iptables-legacy -I "$CHAIN" -m set --match-set $IPSET src -j DROP
 }
 
 delete_iptables_rule() {
-  iptables -D "$CHAIN" -m set --match-set $IPSET src -j DROP
+  iptables-legacy -D "$CHAIN" -m set --match-set $IPSET src -j DROP
 }
 
 destroy_ipset() {
@@ -144,7 +144,7 @@ download_rules() {
     fi
   done
 
-  if [ -s "$LOCAL_BLACKLIST_FILE" ]; then
+  if [ -e "$LOCAL_BLACKLIST_FILE" ]; then
     grep -v "^#" "$LOCAL_BLACKLIST_FILE" | tee -a "$TMP_FILE" > /dev/null 2>&1
   fi
 
@@ -152,7 +152,7 @@ download_rules() {
   sed -i 's/\s*\(#\|;\).*$//' "$TMP_FILE"
   sed -i '/^\s*$/d' "$TMP_FILE"
 
-  if [ -s "$LOCAL_WHITELIST_FILE" ]; then
+  if [ -e "$LOCAL_WHITELIST_FILE" ]; then
     # echo "Removing whitelisted IPs from the downloaded IP blacklist
     IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
     IPWHITELISTREGEX=""
