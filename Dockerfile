@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-RUN apk add --no-cache tini bash iptables iptables-legacy ipset iproute2 curl unzip grep gawk lsof && \
+RUN apk add --no-cache tini bash iptables iptables-legacy ipset iproute2 curl unzip grep gawk lsof perl && \
     mkdir /firehol /firehol-template
     
 ARG IPRANGE_LATEST_VERSION=1.0.4
