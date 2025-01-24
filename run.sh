@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 if [[ ! -e /firehol/firehol.blocklist.cache ]]; then
   cp /firehol-template/firehol.blocklist.cache /firehol
