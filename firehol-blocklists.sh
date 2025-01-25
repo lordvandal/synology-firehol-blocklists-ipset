@@ -55,7 +55,7 @@ trap_with_arg() {
     done
 }
 
-trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL EXIT
+trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL
 
 error() {
   echo "$1" 1>&2
@@ -97,7 +97,7 @@ netset_2_ipset() {
 }
 
 list_active_ipsets() {
-  ipset list -n || ( ipset -L | grep "^Name:" | cut -d: -f 2 )
+  ipset list -n || ( ipset list | grep "^Name:" | cut -d: -f 2 )
 }
 
 ipset_exists() {
@@ -175,10 +175,6 @@ download_rules() {
 update_iptables_ipset() {
   local TMP_FILE="$(mktemp)"
   
-  if ! iptables_rule_exists; then
-    create_iptables_rule
-  fi
-  
   IPs=$( iprange -C "$CACHE_FILE" )
   IPs=${IPs/*,/}
   
@@ -190,7 +186,7 @@ update_iptables_ipset() {
     OPTS="maxelem ${entries}"
   fi
 
-  if ! ipset exists; then
+  if ! ipset_exists; then
     # create ipset
     ipset create "$IPSET" hash:ip $OPTS || exit 1
   fi
@@ -210,7 +206,11 @@ update_iptables_ipset() {
   # destroy the temporary ipset
   ipset destroy "$IPSET_TMP" 2>/dev/null
   rm -f $TMP_FILE
-}
+
+  if ! iptables_rule_exists; then
+    create_iptables_rule
+  fi
+  }
 
 download_rules
 update_iptables_ipset
