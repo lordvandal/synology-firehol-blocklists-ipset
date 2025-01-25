@@ -6,12 +6,10 @@
 ## Intially forked from cowgill, extended and improved for our mailserver needs.
 ## Credit: https://github.com/cowgill/spamhaus/blob/master/spamhaus.sh
 
-# based off the following two scripts
+# Inspired by the below code:
 # http://www.theunsupported.com/2012/07/block-malicious-ip-addresses/
 # http://www.cyberciti.biz/tips/block-spamming-scanning-with-iptables.html
-
-# Thanks to Daniel Hansson for providing a PR motivating bringing v2 of this script.
-# https://github.com/enoch85
+# https://github.com/devrt/docker-firehol-update-ipsets
 
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
 #URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
@@ -107,7 +105,7 @@ ipset_exists() {
       return 0
     fi
   done
-  exit 1
+  return 1
 }
 
 iptables_rule_exists() {
@@ -152,18 +150,20 @@ download_rules() {
   sed -i '/^\s*$/d' "$TMP_FILE"
 
   if [ -e "$LOCAL_WHITELIST_FILE" ]; then
-    # echo "Removing whitelisted IPs from the downloaded IP blacklist
-    IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
-    IPWHITELISTREGEX=""
-    while IFS= read -r WHITELISTEDIP; do
-      IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
-    done <<< ${IPWHITELIST}
-    ## Clean the bounce variable (remove all line-breaks)
-    IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
-    IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX}) ## Remove all IPs listed in the whitelist file
-    grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE}
-    cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
-    rm -f ${WHITELIST_TMP_FILE}
+    if [[ $(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" /firehol/firehol.blocklist.cache | wc -l) -ge 1 ]] ; then
+      # echo "Removing whitelisted IPs from the downloaded IP blacklist
+      IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
+      IPWHITELISTREGEX=""
+      while IFS= read -r WHITELISTEDIP; do
+        IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
+      done <<< ${IPWHITELIST}
+      ## Clean the bounce variable (remove all line-breaks)
+      IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
+      IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX})
+      grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE} ## Remove all IPs listed in the whitelist file
+      cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
+      rm -f ${WHITELIST_TMP_FILE}
+    fi
   fi
 
   # Removing duplicate IPs from the list
