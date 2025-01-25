@@ -29,7 +29,8 @@ RUN apk add --no-cache --virtual .firehol_builddep autoconf automake make && \
 
 # Blacklists separated by one space
 # Default blacklists: Firehol level 1, 2 and 3 lists from https://iplists.firehol.org/
-ENV URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
+#ENV URLS="https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset"
+ENV URLS=https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level3.netset
 
 # Default iptables chain name
 ENV CHAIN="INPUT"
