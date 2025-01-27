@@ -178,12 +178,12 @@ update_iptables_ipset() {
   IPs=$( iprange -C "$CACHE_FILE" )
   IPs=${IPs/*,/}
   
-  iprange -1 "$CACHE_FILE" --print-prefix "add ${tmpname} " >"TMP_FILE" || exit 1
+  iprange -1 "$CACHE_FILE" --print-prefix "add ${TMP_FILE} " >"TMP_FILE" || exit 1
   echo -e "COMMIT" >> "$TMP_FILE"
 
   OPTS=
   if [ $IPs -gt 65536 ]; then
-    OPTS="maxelem ${entries}"
+    OPTS="maxelem ${IPs}"
   fi
 
   if ! ipset_exists; then
