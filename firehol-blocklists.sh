@@ -149,7 +149,7 @@ download_rules() {
   sed -i '/^\s*$/d' "$TMP_FILE"
 
   if [ -e "$LOCAL_WHITELIST_FILE" ]; then
-    if [[ $(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" /firehol/firehol.blocklist.cache | wc -l) -ge 1 ]] ; then
+    if [[ $(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" "$LOCAL_WHITELIST_FILE" | wc -l) -ge 1 ]] ; then
       local WHITELIST_TMP_FILE="$(mktemp)"
       # echo "Removing whitelisted IPs from the downloaded IP blacklist
       IPWHITELIST=$(cat $LOCAL_WHITELIST_FILE)
@@ -170,6 +170,8 @@ download_rules() {
   sort -o "$TMP_FILE" -u "$TMP_FILE" > /dev/null 2>&1
 
   mv -f "$TMP_FILE" "$CACHE_FILE"
+
+  rm -f "TMP_FILE"
 }
 
 update_iptables_ipset() {
