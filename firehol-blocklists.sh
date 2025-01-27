@@ -37,7 +37,7 @@ LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 
 exit_cleanup() {
   if ipset_exists; then
-    destroy_ipset
+    destroy_ipset $1
   fi
   if iptables_rule_exists; then
     delete_iptables_rule
