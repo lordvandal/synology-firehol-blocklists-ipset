@@ -129,7 +129,6 @@ destroy_ipset() {
 
 download_rules() {
   local TMP_FILE="$(mktemp)"
-  local WHITELIST_TMP_FILE="$(mktemp)"
 	
   for URL in $URLS; do
     # get a copy of the spam list
@@ -151,6 +150,7 @@ download_rules() {
 
   if [ -e "$LOCAL_WHITELIST_FILE" ]; then
     if [[ $(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" /firehol/firehol.blocklist.cache | wc -l) -ge 1 ]] ; then
+      local WHITELIST_TMP_FILE="$(mktemp)"
       # echo "Removing whitelisted IPs from the downloaded IP blacklist
       IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
       IPWHITELISTREGEX=""
