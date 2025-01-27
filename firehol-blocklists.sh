@@ -37,7 +37,7 @@ LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 
 exit_cleanup() {
   if ipset_exists; then
-    destroy_ipset $1
+    destroy_ipset "$1"
   fi
   if iptables_rule_exists; then
     delete_iptables_rule
@@ -61,10 +61,10 @@ error() {
 
 expand_cidr() {
   local cidr=$1
-  local ip=$(echo $cidr | cut -d '/' -f 1)
-  local prefix=$(echo $cidr | cut -d '/' -f 2)
+  local ip=$(echo "$cidr" | cut -d '/' -f 1)
+  local prefix=$(echo "$cidr" | cut -d '/' -f 2)
   local IFS=.
-  local -a octets=($ip)
+  local -a octets=("$ip")
   local bin_ip=""
 
   for octet in "${octets[@]}"; do
@@ -109,21 +109,21 @@ ipset_exists() {
 }
 
 iptables_rule_exists() {
-  [[ -n `iptables-legacy -L $CHAIN | grep "match-set $IPSET src"` ]]
+  [[ -n $(iptables-legacy -L "$CHAIN" | grep "match-set $IPSET src") ]]
 }
 
 create_iptables_rule() {
-  iptables-legacy -I "$CHAIN" -m set --match-set $IPSET src -j DROP
+  iptables-legacy -I "$CHAIN" -m set --match-set "$IPSET" src -j DROP
 }
 
 delete_iptables_rule() {
-  iptables-legacy -D "$CHAIN" -m set --match-set $IPSET src -j DROP
+  iptables-legacy -D "$CHAIN" -m set --match-set "$IPSET" src -j DROP
 }
 
 destroy_ipset() {
   # destroy ipset if exists
-  if ipset_exists $1; then
-    ipset destroy $1 2>/dev/null
+  if ipset_exists "$1"; then
+    ipset destroy "$1" 2>/dev/null
   fi
 }
 
@@ -134,7 +134,7 @@ download_rules() {
     # get a copy of the spam list
     echo "Fetching '$URL' ..."
     curl -Ss "$URL" | grep -e "" | netset_2_ipset | tee -a "$TMP_FILE" > /dev/null 2>&1
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
       # Failed to download '$URL', continuing
       cat "$CACHE_FILE" >> "$TMP_FILE"
     fi
@@ -152,17 +152,17 @@ download_rules() {
     if [[ $(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" /firehol/firehol.blocklist.cache | wc -l) -ge 1 ]] ; then
       local WHITELIST_TMP_FILE="$(mktemp)"
       # echo "Removing whitelisted IPs from the downloaded IP blacklist
-      IPWHITELIST=`cat $LOCAL_WHITELIST_FILE`
+      IPWHITELIST=$(cat $LOCAL_WHITELIST_FILE)
       IPWHITELISTREGEX=""
       while IFS= read -r WHITELISTEDIP; do
         IPWHITELISTREGEX+="(${WHITELISTEDIP})|"
-      done <<< ${IPWHITELIST}
+      done <<< "${IPWHITELIST}"
       ## Clean the bounce variable (remove all line-breaks)
       IPWHITELISTREGEX="${IPWHITELISTREGEX//$'\n'/ }"
-      IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< ${IPWHITELISTREGEX})
-      grep -v -E ${IPWHITELISTREGEX} ${TMP_FILE} > ${WHITELIST_TMP_FILE} ## Remove all IPs listed in the whitelist file
-      cp -f ${WHITELIST_TMP_FILE} ${TMP_FILE}
-      rm -f ${WHITELIST_TMP_FILE}
+      IPWHITELISTREGEX=$(perl -pe "s/(.*)\|/\1/gms" <<< "${IPWHITELISTREGEX}")
+      grep -v -E "${IPWHITELISTREGEX}" "${TMP_FILE}" > "${WHITELIST_TMP_FILE}" ## Remove all IPs listed in the whitelist file
+      cp -f "${WHITELIST_TMP_FILE}" "${TMP_FILE}"
+      rm -f "${WHITELIST_TMP_FILE}"
     fi
   fi
 
@@ -175,24 +175,24 @@ download_rules() {
 update_iptables_ipset() {
   local TMP_FILE="$(mktemp)"
   
-  IPs=$( iprange -C "$CACHE_FILE" )
+  local IPs=$(iprange -C "$CACHE_FILE")
   IPs=${IPs/*,/}
   
   iprange -1 "$CACHE_FILE" --print-prefix "add ${IPSET_TMP} " >"$TMP_FILE" || exit 1
   echo -e "COMMIT" >> "$TMP_FILE"
 
-  OPTS=
-  if [ $IPs -gt 65536 ]; then
+  local OPTS=
+  if [ "$IPs" -gt 65536 ]; then
     OPTS="maxelem ${IPs}"
   fi
 
-  if ! ipset_exists $IPSET; then
+  if ! ipset_exists "$IPSET"; then
     # create ipset
-    ipset create "$IPSET" hash:ip $OPTS || exit 1
+    ipset create "$IPSET" hash:ip "$OPTS" || exit 1
   fi
 
   # create a temporary ipset
-  ipset create "$IPSET_TMP" hash:ip $OPTS || exit 1
+  ipset create "$IPSET_TMP" hash:ip "$OPTS" || exit 1
 
   # flush the temporary ipset
   ipset flush "$IPSET_TMP" || exit 1
@@ -205,7 +205,7 @@ update_iptables_ipset() {
   
   # destroy the temporary ipset
   ipset destroy "$IPSET_TMP" 2>/dev/null
-  rm -f $TMP_FILE
+  rm -f "$TMP_FILE"
 
   if ! iptables_rule_exists; then
     create_iptables_rule
