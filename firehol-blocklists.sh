@@ -37,13 +37,13 @@ LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 
 exit_cleanup() {
   if ipset_exists; then
-    destroy_ipset "$1"
+    destroy_ipset "$IPSET"
   fi
   if iptables_rule_exists; then
     delete_iptables_rule
   fi
   # remove our handler
-  trap - SIGHUP SIGINT SIGTERM SIGKILL EXIT
+  trap - SIGHUP SIGINT SIGTERM SIGKILL
 }
 
 trap_with_arg() {
@@ -53,7 +53,7 @@ trap_with_arg() {
     done
 }
 
-trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL EXIT
+trap_with_arg exit_cleanup SIGHUP SIGINT SIGTERM SIGKILL
 
 error() {
   echo "$1" 1>&2
