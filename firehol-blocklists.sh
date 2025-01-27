@@ -59,31 +59,6 @@ error() {
   echo "$1" 1>&2
 }
 
-expand_cidr() {
-  local cidr=$1
-  local ip=$(echo "$cidr" | cut -d '/' -f 1)
-  local prefix=$(echo "$cidr" | cut -d '/' -f 2)
-  local IFS=.
-  local -a octets=("$ip")
-  local bin_ip=""
-
-  for octet in "${octets[@]}"; do
-    bin_ip+=$(echo "obase=2; $octet" | bc | awk '{printf "%08d", $0}')
-  done
-
-  local num_ips=$(( 1 << (32 - prefix) ))
-  local range_start=$(echo "ibase=2; $bin_ip" | bc)
-  local range_end=$((range_start + num_ips - 1))
-
-  for (( ip=range_start; ip<=range_end; ip++ )); do
-    local ip1=$((ip>>24 & 0xFF))
-    local ip2=$((ip>>16 & 0xFF))
-    local ip3=$((ip>>8 & 0xFF))
-    local ip4=$((ip & 0xFF))
-    echo "${ip1}.${ip2}.${ip3}.${ip4}"
-  done
-}
-
 prips() {
   local cidr="$1" ; local lo hi a b c d e f g h
 
