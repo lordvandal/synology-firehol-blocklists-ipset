@@ -196,18 +196,18 @@ update_iptables_ipset() {
   iprange -1 "$CACHE_FILE" --print-prefix "add ${IPSET_TMP} " >"$TMP_FILE" || exit 1
   echo -e "COMMIT" >> "$TMP_FILE"
 
-  local OPTS=
+  local PARAMS=
   if [ "$IPs" -gt 65536 ]; then
-    OPTS="maxelem ${IPs}"
+    PARAMS="maxelem ${IPs}"
   fi
 
   if ! ipset_exists "$IPSET"; then
     # create ipset
-    ipset create "$IPSET" hash:ip "$OPTS" || exit 1
+    ipset create "$IPSET" hash:ip ${PARAMS:+"$PARAMS"} || exit 1
   fi
 
   # create a temporary ipset
-  ipset create "$IPSET_TMP" hash:ip "$OPTS" || exit 1
+  ipset create "$IPSET_TMP" hash:ip ${PARAMS:+"$PARAMS"} || exit 1
 
   # flush the temporary ipset
   ipset flush "$IPSET_TMP" || exit 1
