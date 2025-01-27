@@ -84,10 +84,23 @@ expand_cidr() {
   done
 }
 
+prips() {
+  local cidr="$1" ; local lo hi a b c d e f g h
+
+  # range is bounded by network (-n) & broadcast (-b) addresses.
+  lo="$(ipcalc -n "$cidr" | cut -f2 -d=)"
+  hi="$(ipcalc -b "$cidr" | cut -f2 -d=)"
+
+  IFS=. read -r a b c d <<< "$lo"
+  IFS=. read -r e f g h <<< "$hi"
+
+  eval "echo {$a..$e}.{$b..$f}.{$c..$g}.{$d..$h}" | sed 's/ /\n/g'
+}
+
 netset_2_ipset() {
   while IFS= read -r line; do
     if echo "$line" | grep -q -E '^[^#]*/.+$'; then  # Check if the line is NOT a comment, BUT contains a CIDR notation
-      expand_cidr "$line"
+      prips "$line"
     else
       echo "$line"  # Output the line as is if it's not a CIDR notation
     fi
