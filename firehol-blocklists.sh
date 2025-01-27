@@ -109,7 +109,7 @@ ipset_exists() {
 }
 
 iptables_rule_exists() {
-  [[ -n `iptables-legacy -L $CHAIN | grep "match-set $1 src"` ]]
+  [[ -n `iptables-legacy -L $CHAIN | grep "match-set $IPSET src"` ]]
 }
 
 create_iptables_rule() {
@@ -122,8 +122,8 @@ delete_iptables_rule() {
 
 destroy_ipset() {
   # destroy ipset if exists
-  if ipset_exists; then
-    ipset destroy "$IPSET" 2>/dev/null
+  if ipset_exists $1; then
+    ipset destroy $1 2>/dev/null
   fi
 }
 
@@ -186,7 +186,7 @@ update_iptables_ipset() {
     OPTS="maxelem ${IPs}"
   fi
 
-  if ! ipset_exists; then
+  if ! ipset_exists $IPSET; then
     # create ipset
     ipset create "$IPSET" hash:ip $OPTS || exit 1
   fi
