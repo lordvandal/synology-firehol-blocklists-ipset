@@ -178,7 +178,7 @@ update_iptables_ipset() {
   IPs=$( iprange -C "$CACHE_FILE" )
   IPs=${IPs/*,/}
   
-  iprange -1 "$CACHE_FILE" --print-prefix "add ${IPSET_TMP} " >"TMP_FILE" || exit 1
+  iprange -1 "$CACHE_FILE" --print-prefix "add ${IPSET_TMP} " >"$TMP_FILE" || exit 1
   echo -e "COMMIT" >> "$TMP_FILE"
 
   OPTS=
