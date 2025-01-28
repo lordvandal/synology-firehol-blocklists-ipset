@@ -48,6 +48,9 @@ ENV IPSET_TMP="firehol-blocklist-tmp"
 # Default local white list file
 #LOCAL_WHITELIST_FILE="/firehol/whitelist"
 
+# Timezone definition
+ENV TZ="Europe/Bucharest"
+
 COPY firehol.blocklist.cache blocklist whitelist /firehol-template
 COPY run.sh firehol-blocklists.sh /bin
 RUN chmod +x /bin/run.sh /bin/firehol-blocklists.sh
