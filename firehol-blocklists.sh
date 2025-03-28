@@ -36,11 +36,11 @@ LOCAL_WHITELIST_FILE="$CONFIG_FOLDER/whitelist"
 #IPSET_TMP="firehol-blocklist-tmp"
 
 exit_cleanup() {
-  if ipset_exists; then
-    destroy_ipset "$IPSET"
-  fi
   if iptables_rule_exists; then
     delete_iptables_rule
+  fi
+  if ipset_exists; then
+    destroy_ipset "$IPSET"
   fi
   # remove our handler
   trap - SIGHUP SIGINT SIGTERM SIGKILL
