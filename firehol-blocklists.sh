@@ -97,7 +97,8 @@ ipset_exists() {
 }
 
 iptables_rule_exists() {
-  [[ -n $(iptables-legacy -L "$CHAIN" | grep "match-set $IPSET src") ]]
+  # -C checks for the exact rule; -L would reverse-resolve every address in the chain
+  iptables-legacy -C "$CHAIN" -m set --match-set "$IPSET" src -j DROP 2>/dev/null
 }
 
 create_iptables_rule() {
@@ -159,7 +160,7 @@ download_rules() {
 
   mv -f "$TMP_FILE" "$CACHE_FILE"
 
-  rm -f "TMP_FILE"
+  rm -f "$TMP_FILE"
 }
 
 update_iptables_ipset() {
